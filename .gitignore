@@ -1,0 +1,17 @@
+# Ignore the Python virtual‐environment folder
+venv/
+
+# Bytecode / caches
+__pycache__/
+*.py[cod]
+
+# Mac / Windows FS metadata
+.DS_Store
+Thumbs.db
+
+# Editor folders
+.vscode/
+.idea/
+
+# Secrets file (if you have one)
+.env

@@ -1,0 +1,8 @@
+mkdir -p flask-analytics/{app/{blueprints/{reports,trends},services,utils},models} \
+&& touch flask-analytics/{requirements.txt,run.py,Dockerfile,.env} \
+&& touch flask-analytics/app/{__init__.py,config.py} \
+&& touch flask-analytics/app/blueprints/reports/{__init__.py,routes.py} \
+&& touch flask-analytics/app/blueprints/trends/{__init__.py,routes.py} \
+&& touch flask-analytics/app/services/{data_fetcher.py,report_builder.py,arima_model.py,lstm_model.py,ensemble.py,viz.py} \
+&& touch flask-analytics/app/utils/{cache.py,serializer.py} \
+&& touch flask-analytics/models/{arima.pkl,lstm.h5,ensemble_meta.json}

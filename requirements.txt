@@ -1,0 +1,11 @@
+Flask
+requests
+pandas
+numpy
+statsmodels
+tensorflow
+matplotlib
+joblib
+flask-cors
+python-dotenv
+mysql-connector-python
