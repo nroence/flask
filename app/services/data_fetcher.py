@@ -4,6 +4,9 @@ from datetime import datetime, timedelta
 import mysql.connector
 import os
 
+# IDs of Window A and Window B — adjust if yours differ
+EXCLUDE_QUEUE_IDS = (1, 2)
+
 def get_db_connection():
     return mysql.connector.connect(
         host               = os.getenv("DB_HOST", "127.0.0.1"),
@@ -22,6 +25,7 @@ def fetch_daily_visit_counts(date_from=None, date_to=None, queue_id: int | None 
     
     - If `queue_id` is provided, only tokens with that queue_id are counted.
     - If no date_from/to are given, defaults to the last 30 days.
+    - If queue_id is None (i.e. "All Departments"), tokens for Window A & B are excluded.
     """
     conn = get_db_connection()
     cur  = conn.cursor(dictionary=True)
@@ -43,8 +47,15 @@ def fetch_daily_visit_counts(date_from=None, date_to=None, queue_id: int | None 
     params = [date_from, date_to]
 
     if queue_id is not None:
+        # Specific department/queue
         sql += " AND queue_id = %s"
         params.append(queue_id)
+    else:
+        # “All Departments” — exclude Window A & B
+        if EXCLUDE_QUEUE_IDS:
+            placeholders = ",".join(["%s"] * len(EXCLUDE_QUEUE_IDS))
+            sql += f" AND queue_id NOT IN ({placeholders})"
+            params.extend(EXCLUDE_QUEUE_IDS)
 
     sql += " GROUP BY DATE(created_at) ORDER BY DATE(created_at)"
 
