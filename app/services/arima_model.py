@@ -4,8 +4,9 @@ import os
 import pickle
 
 import pandas as pd
-from statsmodels.tsa.arima.model import ARIMA
-
+from statsmodels.tsa.arima.model import ARIMA, ARIMAResults
+from pandas.tseries.frequencies import to_offset
+from typing import Optional
 from .arima_helper import build_daily_series
 
 # Default path (for “all queues”) if you ever need a fallback
@@ -85,23 +86,19 @@ def forecast_arima(
     """
     # 1) Determine the "last date" and frequency
     if date_to is not None:
-        # Anchor on the user-supplied end date
         last_date = pd.to_datetime(date_to)
-        # Use daily frequency by default
         freq = getattr(fitted._train_index, "freq", to_offset("D"))
     elif hasattr(fitted, "_train_index"):
-        # Use the stored train index on the fitted model
         last_date = fitted._train_index[-1]
         freq = fitted._train_index.freq or to_offset("D")
     elif fitted.model.data.dates is not None:
-        # Fallback for newer statsmodels versions
         last_date = fitted.model.data.dates[-1]
         freq = fitted.model.data.dates.freq or to_offset("D")
     else:
         raise RuntimeError("Cannot infer last date – please refit the model")
 
     # 2) Build a future date index starting one period after last_date
-    offset = to_offset(freq) if not hasattr(freq, "__add__") else freq
+    offset = to_offset(freq) if not hasattr(freq, "delta") else freq
     future_index = pd.date_range(
         start=last_date + offset,
         periods=steps,
