@@ -42,7 +42,8 @@ def fetch_daily_visit_counts(date_from=None, date_to=None, queue_id: int | None 
         DATE(created_at) AS date,
         COUNT(*)           AS count
       FROM tokens
-      WHERE DATE(created_at) BETWEEN %s AND %s
+      WHERE served_at IS NOT NULL
+        AND DATE(served_at) BETWEEN %s AND %s
     """
     params = [date_from, date_to]
 
