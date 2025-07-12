@@ -55,37 +55,67 @@ def load_arima_model(path=MODEL_PATH):
 # ───────────────────────────────────────────────────────────────────
 # FORECAST
 # ───────────────────────────────────────────────────────────────────
-def forecast_arima(fitted, steps=14):
+def forecast_arima(
+    fitted: ARIMAResults,
+    steps: int = 14,
+    date_to: Optional[str] = None
+) -> pd.Series:
     """
     Forecast 'steps' periods ahead and return a pandas.Series whose index
-    is a proper DatetimeIndex for those future dates.
+    is a proper DatetimeIndex for those future dates. If `date_to` is given,
+    the first forecast date will be the day after `date_to`; otherwise the
+    first forecast date comes one period after the end of the training index.
+
+    Parameters
+    ----------
+    fitted : ARIMAResults
+        A fitted statsmodels ARIMAResults object, with a `_train_index`
+        attribute or accessible `model.data.dates`.
+    steps : int, default=14
+        Number of days (periods) to forecast.
+    date_to : str or None
+        If provided, a string "YYYY-MM-DD" indicating the last observed date.
+        Forecasts will start on date_to + 1 day. If None, falls back to
+        fitted._train_index or fitted.model.data.dates.
+
+    Returns
+    -------
+    pd.Series
+        A Series of length `steps`, indexed by the future dates.
     """
-    # 1) Determine the last date of the training set
-    if hasattr(fitted, "_train_index"):
+    # 1) Determine the "last date" and frequency
+    if date_to is not None:
+        # Anchor on the user-supplied end date
+        last_date = pd.to_datetime(date_to)
+        # Use daily frequency by default
+        freq = getattr(fitted._train_index, "freq", to_offset("D"))
+    elif hasattr(fitted, "_train_index"):
+        # Use the stored train index on the fitted model
         last_date = fitted._train_index[-1]
-        freq = fitted._train_index.freq or "D"
+        freq = fitted._train_index.freq or to_offset("D")
     elif fitted.model.data.dates is not None:
-        # statsmodels 0.14+ stores original dates here
+        # Fallback for newer statsmodels versions
         last_date = fitted.model.data.dates[-1]
-        freq = fitted.model.data.dates.freq or "D"
+        freq = fitted.model.data.dates.freq or to_offset("D")
     else:
         raise RuntimeError("Cannot infer last date – please refit the model")
 
     # 2) Build a future date index starting one period after last_date
+    offset = to_offset(freq) if not hasattr(freq, "__add__") else freq
     future_index = pd.date_range(
-        start=last_date + pd.tseries.frequencies.to_offset(freq),
+        start=last_date + offset,
         periods=steps,
         freq=freq
     )
 
-    # 3) Use statsmodels’ predict to get future values
+    # 3) Generate predictions
     preds = fitted.predict(
         start=future_index[0],
         end=future_index[-1],
         dynamic=False
     )
 
-    # 4) Return a Series indexed by the future dates
+    # 4) Return a Series with that index
     return pd.Series(preds.values, index=future_index, name="arima_forecast")
 
 
