@@ -8,7 +8,7 @@ def build_daily_series(date_from, date_to, queue_id=None):
     Returns a pandas.Series indexed by datetime.date,
     with one value (token count) for each calendar day between date_from and date_to.
     If queue_id is provided, only tokens for that queue are counted.
-    Missing days in the range are filled with 0.
+    Missing days in the range are filled with 0, then any all-zero tail is trimmed.
     """
     # 1) Fetch raw rows from tokens (optionally filtered by queue_id)
     raw = fetch_daily_visit_counts(date_from, date_to, queue_id)
@@ -32,5 +32,12 @@ def build_daily_series(date_from, date_to, queue_id=None):
 
     series.index.name = "date"
     series.name = "visits"
+
+    # 6) Trim any trailing zeros (so ARIMA sees a real last value)
+    non_zero_dates = series[series != 0].index
+    if len(non_zero_dates) > 0:
+        last_nz = non_zero_dates[-1]
+        series = series.loc[:last_nz]
+    # if it's all zeros, we leave it as-is (upstream will handle empty or flat zero series)
 
     return series
