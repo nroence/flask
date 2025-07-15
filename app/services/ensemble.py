@@ -75,13 +75,16 @@ def run_ensemble(
 
     # ── 4) If both forecasts requested, build ensemble (average) ──────
     if model == "ensemble":
+        # DEBUG: inspect the two index objects
+        print("ARIMA index:", arima_forecast.index)
+        print("LSTM index:",  lstm_forecast.index)
+    
         combined = pd.concat(
             [arima_forecast.rename("arima"), lstm_forecast.rename("lstm")],
             axis=1,
             join="inner",
         )
-        ensemble = combined.mean(axis=1).round().astype(int)
-        ensemble.name = "ensemble"
+        print("Combined empty?", combined.empty)
 
     # ── 5) Assemble JSON-friendly response ────────────────────────────
     payload = {"historical_mean": historical_mean}
