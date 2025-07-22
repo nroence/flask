@@ -80,10 +80,12 @@ def run_ensemble(
         print("LSTM index:",  lstm_forecast.index)
     
         combined = pd.concat(
-            [arima_forecast.rename("arima"), lstm_forecast.rename("lstm")],
+            [arima_forecast.rename("arima"),
+             lstm_forecast.rename("lstm")],
             axis=1,
             join="inner",
         )
+        ensemble = combined.mean(axis=1).rename("ensemble")
         print("Combined empty?", combined.empty)
 
     # ── 5) Assemble JSON-friendly response ────────────────────────────
