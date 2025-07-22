@@ -20,7 +20,6 @@ def _arima_path(queue_id):
     suffix = f"queue{queue_id}" if queue_id else "all"
     return os.path.join("models", f"arima_{suffix}.pkl")
 
-
 def run_ensemble(
     date_from: str | None = None,
     date_to:   str | None = None,
@@ -33,18 +32,15 @@ def run_ensemble(
     retrain:       bool = False,
 ):
     """
-    Build ARIMA +/- LSTM forecasts and (optionally) their average.
-
-    All key knobs (steps, window_size, arima_order) can be supplied by the UI.
+    Build ARIMA ± LSTM forecasts, and (optionally) their point-wise average.
     """
 
-    # ── 0) Determine date range defaults ──────────────────────────────
-    today = datetime.today().date()
+    # ── 0) Resolve date defaults ──────────────────────────────────────
+    today      = datetime.today().date()
+    date_to    = pd.to_datetime(date_to).date()   if date_to   else today
+    date_from  = pd.to_datetime(date_from).date() if date_from else date_to - timedelta(days=60)
 
-    date_to   = pd.to_datetime(date_to).date() if date_to   else today
-    date_from = pd.to_datetime(date_from).date() if date_from else date_to - timedelta(days=60)
-
-    # ── 1) ARIMA: train or load ───────────────────────────────────────
+    # ── 1) ARIMA forecast ─────────────────────────────────────────────
     want_arima = model in {"arima", "ensemble"}
     if want_arima:
         arima_path = _arima_path(queue_id)
@@ -57,7 +53,7 @@ def run_ensemble(
 
         arima_forecast = forecast_arima(fitted_arima, steps=steps)
 
-    # ── 2) LSTM: train or load ────────────────────────────────────────
+    # ── 2) LSTM forecast ──────────────────────────────────────────────
     want_lstm = model in {"lstm", "ensemble"}
     if want_lstm:
         lstm_forecast = forecast_lstm(
@@ -69,26 +65,21 @@ def run_ensemble(
             retrain=retrain,
         )
 
-    # ── 3) Historical mean over training window ───────────────────────
-    hist_series = build_daily_series(date_from, date_to, queue_id)
-    historical_mean = float(hist_series.mean()) if not hist_series.empty else 0.0
+    # ── 3) Historical mean for context ────────────────────────────────
+    hist_series      = build_daily_series(date_from, date_to, queue_id)
+    historical_mean  = float(hist_series.mean()) if not hist_series.empty else 0.0
 
-    # ── 4) If both forecasts requested, build ensemble (average) ──────
+    # ── 4) Ensemble (point-wise mean) ─────────────────────────────────
     if model == "ensemble":
-        # DEBUG: inspect the two index objects
-        print("ARIMA index:", arima_forecast.index)
-        print("LSTM index:",  lstm_forecast.index)
-    
         combined = pd.concat(
             [arima_forecast.rename("arima"),
              lstm_forecast.rename("lstm")],
             axis=1,
-            join="inner",
+            join="outer",       # union of indexes to keep every future day
         )
-        ensemble = combined.mean(axis=1).rename("ensemble")
-        print("Combined empty?", combined.empty)
+        ensemble = combined.mean(axis=1, skipna=True).rename("ensemble")
 
-    # ── 5) Assemble JSON-friendly response ────────────────────────────
+    # ── 5) JSON-friendly payload ──────────────────────────────────────
     payload = {"historical_mean": historical_mean}
 
     if want_arima:
